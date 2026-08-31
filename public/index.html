@@ -2152,160 +2152,33 @@ const WHATSAPP_NUMBER = '2348057332484';
 
 let isAdmin = false;
 let cart = JSON.parse(localStorage.getItem('3mk_cart')) || [];
-let products = JSON.parse(localStorage.getItem('3mk_products')) || [];
+let products = []; // Populated directly from the server database
 let currentFilter = 'all';
 
-// Initialize with sample products if none exist
-if (products.length === 0) {
-    products = [
-        {
-            id: 1,
-            name: 'Heineken Beer (Carton)',
-            description: 'Premium imported lager beer. 24 bottles per carton. Crisp refreshing taste.',
-            price: 18000,
-            category: 'beer',
-            unit: 'Per Carton',
-            minOrder: '50 Cartons',
-            available: true,
-            image: ''
-        },
-        {
-            id: 2,
-            name: 'Coca-Cola 50cl (Crate)',
-            description: 'Classic Coca-Cola PET bottles. 24 pieces per crate. Wholesale price.',
-            price: 4500,
-            category: 'softdrink',
-            unit: 'Per Crate',
-            minOrder: '100 Crates',
-            available: true,
-            image: ''
-        },
-        {
-            id: 3,
-            name: 'Hennessy VS Cognac',
-            description: 'Hennessy Very Special Cognac. 70cl bottle. Original and sealed.',
-            price: 28000,
-            category: 'wine',
-            unit: 'Per Bottle',
-            minOrder: '12 Bottles',
-            available: true,
-            image: ''
-        },
-        {
-            id: 4,
-            name: 'Chi Exotic Juice (Pack)',
-            description: 'Tropical fruit juice blend. 1 Litre x 12 pack. No added sugar.',
-            price: 6500,
-            category: 'juice',
-            unit: 'Per Pack',
-            minOrder: '50 Packs',
-            available: true,
-            image: ''
-        },
-        {
-            id: 5,
-            name: 'Red Bull Energy (Tray)',
-            description: 'Red Bull energy drink. 250ml x 24 cans per tray. Wings for wholesale.',
-            price: 14000,
-            category: 'energy',
-            unit: 'Per Tray',
-            minOrder: '30 Trays',
-            available: true,
-            image: ''
-        },
-        {
-            id: 6,
-            name: 'Eva Water (Pack)',
-            description: 'Premium table water. 75cl x 12 bottles per pack. Pure refreshment.',
-            price: 2200,
-            category: 'water',
-            unit: 'Per Pack',
-            minOrder: '200 Packs',
-            available: true,
-            image: ''
-        },
-        {
-            id: 7,
-            name: 'Guinness Foreign Extra (Carton)',
-            description: 'Bold Nigerian favourite stout. 60cl x 12 bottles. Full bodied taste.',
-            price: 8500,
-            category: 'beer',
-            unit: 'Per Carton',
-            minOrder: '80 Cartons',
-            available: false,
-            image: ''
-        },
-        {
-            id: 8,
-            name: 'Fanta Orange 50cl (Crate)',
-            description: 'Refreshing orange flavoured soft drink. 24 bottles per crate.',
-            price: 4500,
-            category: 'softdrink',
-            unit: 'Per Crate',
-            minOrder: '100 Crates',
-            available: true,
-            image: ''
-        },
-        {
-            id: 9,
-            name: 'Jack Daniels Whiskey',
-            description: 'Tennessee whiskey. 70cl bottle. Smooth and distinctive character.',
-            price: 22000,
-            category: 'wine',
-            unit: 'Per Bottle',
-            minOrder: '6 Bottles',
-            available: true,
-            image: ''
-        },
-        {
-            id: 10,
-            name: 'Hollandia Yoghurt (Carton)',
-            description: 'Creamy strawberry yoghurt drink. 500ml x 12 per carton.',
-            price: 7200,
-            category: 'other',
-            unit: 'Per Carton',
-            minOrder: '40 Cartons',
-            available: true,
-            image: ''
-        },
-        {
-            id: 11,
-            name: 'Star Lager Beer (Crate)',
-            description: 'Nigeria\'s favourite beer. 60cl x 12 bottles per crate.',
-            price: 5800,
-            category: 'beer',
-            unit: 'Per Crate',
-            minOrder: '100 Crates',
-            available: true,
-            image: ''
-        },
-        {
-            id: 12,
-            name: 'Five Alive Juice (Pack)',
-            description: 'Five Alive citrus burst juice. 1L x 12 per pack. Vitamin C enriched.',
-            price: 7000,
-            category: 'juice',
-            unit: 'Per Pack',
-            minOrder: '60 Packs',
-            available: true,
-            image: ''
-        }
-    ];
-    saveProducts();
-}
-
 // ==================== LOADING ====================
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
+    createBubbles();
+    await loadProductsFromServer(); // Fetch latest persistent items from global DB
+    updateCartBadge();
+    
     setTimeout(() => {
         document.getElementById('loadingScreen').classList.add('hide');
         document.getElementById('pageContent').classList.add('visible');
     }, 1500);
-    
-    createBubbles();
-    renderProducts();
-    updateCartBadge();
-    updateCategoryCounts();
 });
+
+async function loadProductsFromServer() {
+    try {
+        const res = await fetch('/api/products');
+        if (!res.ok) throw new Error("Failed to pull database from server");
+        products = await res.json();
+        renderProducts();
+        updateCategoryCounts();
+    } catch (err) {
+        console.error("Database connection error:", err);
+        showToast("Error synchronizing with server database", "error");
+    }
+}
 
 function createBubbles() {
     const container = document.getElementById('bgAnimation');
@@ -2406,10 +2279,6 @@ function logoutAdmin() {
 }
 
 // ==================== PRODUCTS ====================
-function saveProducts() {
-    localStorage.setItem('3mk_products', JSON.stringify(products));
-}
-
 function getCategoryEmoji(cat) {
     const map = { beer: '🍺', wine: '🍷', softdrink: '🥤', juice: '🧃', water: '💧', energy: '⚡', other: '📦' };
     return map[cat] || '📦';
@@ -2597,7 +2466,7 @@ function previewImage(input) {
     }
 }
 
-function saveProduct() {
+async function saveProduct() {
     const name = document.getElementById('prodName').value.trim();
     const desc = document.getElementById('prodDesc').value.trim();
     const price = parseFloat(document.getElementById('prodPrice').value);
@@ -2608,49 +2477,66 @@ function saveProduct() {
     const editId = document.getElementById('editProductId').value;
     const preview = document.getElementById('imgPreview');
     
-    if (!name || !price) {
+    if (!name || isNaN(price)) {
         showToast('Please fill in product name and price.', 'error');
         return;
     }
     
     const imageData = preview.style.display !== 'none' ? preview.src : '';
     
-    if (editId) {
-        // Edit existing
-        const idx = products.findIndex(p => p.id === parseInt(editId));
-        if (idx !== -1) {
-            products[idx] = {
-                ...products[idx],
-                name, description: desc, price, category, unit, minOrder,
-                available: availability === 'available',
-                image: imageData
-            };
-            showToast('Product updated successfully!', 'success');
+    const productPayload = {
+        name,
+        description: desc,
+        price,
+        category,
+        unit,
+        minOrder,
+        available: availability === 'available',
+        image: imageData
+    };
+
+    try {
+        let response;
+        if (editId) {
+            // Send PUT update request to server DB
+            response = await fetch(`/api/products/${editId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(productPayload)
+            });
+            if (!response.ok) throw new Error("Failed to edit product");
+            showToast('Product updated on global database!', 'success');
+        } else {
+            // Send POST request to create on server DB
+            response = await fetch('/api/products', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(productPayload)
+            });
+            if (!response.ok) throw new Error("Failed to create product");
+            showToast('Product added to global database!', 'success');
         }
-    } else {
-        // Add new
-        const newId = products.length > 0 ? Math.max(...products.map(p => p.id)) + 1 : 1;
-        products.push({
-            id: newId, name, description: desc, price, category, unit, minOrder,
-            available: availability === 'available',
-            image: imageData
-        });
-        showToast('Product added successfully!', 'success');
+        
+        await loadProductsFromServer(); // Pull sync variables down to keep app updated
+        closeModal('productModal');
+    } catch (err) {
+        console.error(err);
+        showToast("Database communication error. Save failed.", "error");
     }
-    
-    saveProducts();
-    renderProducts();
-    updateCategoryCounts();
-    closeModal('productModal');
 }
 
-function toggleAvailability(id) {
-    const product = products.find(p => p.id === id);
-    if (product) {
-        product.available = !product.available;
-        saveProducts();
-        renderProducts();
-        showToast(`${product.name} is now ${product.available ? 'Available' : 'Unavailable'}`, 'info');
+async function toggleAvailability(id) {
+    try {
+        const response = await fetch(`/api/products/${id}/toggle`, {
+            method: 'PATCH'
+        });
+        if (!response.ok) throw new Error("Toggle status transmission failed");
+        
+        await loadProductsFromServer();
+        showToast("Stock status updated permanently!", "info");
+    } catch (err) {
+        console.error(err);
+        showToast("Failed to switch product status.", "error");
     }
 }
 
@@ -2663,20 +2549,27 @@ function promptDelete(id) {
     }
 }
 
-function confirmDelete() {
+async function confirmDelete() {
     const id = parseInt(document.getElementById('deleteProductId').value);
-    products = products.filter(p => p.id !== id);
     
-    // Also remove from cart
-    cart = cart.filter(c => c.id !== id);
-    saveCart();
-    updateCartBadge();
-    
-    saveProducts();
-    renderProducts();
-    updateCategoryCounts();
-    closeModal('deleteModal');
-    showToast('Product deleted successfully.', 'success');
+    try {
+        const response = await fetch(`/api/products/${id}`, {
+            method: 'DELETE'
+        });
+        if (!response.ok) throw new Error("Delete transmission failed");
+
+        // Also remove from local shopping cart
+        cart = cart.filter(c => c.id !== id);
+        saveCart();
+        updateCartBadge();
+        
+        await loadProductsFromServer();
+        closeModal('deleteModal');
+        showToast('Product permanently deleted!', 'success');
+    } catch (err) {
+        console.error(err);
+        showToast("Failed to delete database record.", "error");
+    }
 }
 
 // ==================== CART ====================
