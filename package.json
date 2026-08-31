@@ -1,7 +1,7 @@
 {
   "name": "3mk-depot-wholesale",
   "version": "1.0.0",
-  "description": "3MK Wholesale Drinks Depot Web App",
+  "description": "3MK Wholesale Drinks Depot with Persistent Server-side Database",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
